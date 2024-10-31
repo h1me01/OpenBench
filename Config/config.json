@@ -1,6 +1,6 @@
 {
     "client_version"  : 32,
-    "client_repo_url" : "https://github.com/AndyGrant/OpenBench",
+    "client_repo_url" : "https://github.com/h1me01/OpenBench",
     "client_repo_ref" : "master",
 
     "use_cross_approval"          : false,
@@ -42,6 +42,7 @@
         "Stockfish",
         "Weiss",
         "Winter",
-        "Zahak"
+        "Zahak",
+        "Astra"
     ]
 }
