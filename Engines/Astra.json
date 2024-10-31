@@ -4,10 +4,10 @@
     "source"  : "https://github.com/h1me01/Astra",
 
     "build" : {
-        "path"      : "C:/Users/semio/Documents/programming/Astra-Chess-Engine/Astra/src",
+        "path"      : "src",
         "compilers" : ["g++"],
         "cpuflags"  : [],
-        "systems"   : ["Windows"]
+        "systems"   : ["Windows", "Linux"]
     },
 
     "test_presets" : {
