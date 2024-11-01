@@ -43,28 +43,38 @@ from utils import OpenBenchBadBenchException
 MAX_BENCH_TIME_SECONDS = 60
 
 def parse_stream_output(stream):
+    nps = bench = None  # Initialize values
 
-    nps = bench = None # Search through output Stream
-    for line in stream.decode('ascii').strip().split('\n')[::-1]:
+    # Split lines and reverse for processing
+    lines = stream.decode('ascii').strip().split('\n')[::-1]
 
+    for line in lines:
         # Convert non alpha-numerics to spaces
         line = re.sub(r'[^a-zA-Z0-9 ]+', ' ', line)
 
-        # Multiple methods, including Ethereal and Stockfish
-        nps_pattern   = r'(\d+\s+nps)|(nps\s+\d+)|(nodes second\s+\d+)'
-        bench_pattern = r'(\d+\s+nodes)|(nodes\s+\d+)|(nodes searched\s+\d+)'
+        # Define patterns for NPS and Bench results
+        nps_pattern = r'(\d+\s+nps)|(nps\s+\d+)'
+        bench_pattern = r'(\d+\s+nodes)|(nodes\s+\d+)'
 
-        # Search for and set only once the NPS and Bench values
+        # Match NPS
         re_nps = re.search(nps_pattern, line, re.IGNORECASE)
+        if re_nps:
+            nps = int(re.search(r'\d+', re_nps.group()).group())
+
+        # Match Bench
         re_bench = re.search(bench_pattern, line, re.IGNORECASE)
+        if re_bench:
+            bench = int(re.search(r'\d+', re_bench.group()).group())
 
-        # Set, but don't override
-        if re_nps: nps = nps if nps else re_nps.group()
-        if re_bench: bench = bench if bench else re_bench.group()
-
-    # Parse out the integer portion from our matches
-    nps   = int(re.search(r'\d+', nps  ).group()) if nps   else None
-    bench = int(re.search(r'\d+', bench).group()) if bench else None
+        # Check if this line contains the total nodes and NPS
+        if 'nodes' in line and 'nps' in line:
+            parts = line.split()
+            try:
+                bench = int(parts[0])  # Assuming the first part is the node count
+                nps = int(parts[2])    # Assuming the second part is the NPS
+            except (ValueError, IndexError):
+                print("Failed to parse nodes or nps from:", line)
+                
     return (bench, nps)
 
 def single_core_bench(binary, network, private, outqueue):
