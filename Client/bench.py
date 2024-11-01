@@ -94,7 +94,7 @@ def single_core_bench(binary, network, private, outqueue):
         outqueue.put(parse_stream_output(stdout))
 
     except: # Signal an error with (None, None)
-        outqueue.put((None, None))
+        outqueue.put(("None", None))
 
 def multi_core_bench(binary, network, private, threads):
 
