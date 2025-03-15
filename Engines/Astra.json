@@ -30,24 +30,8 @@
         },
         "LTC": {
             "both_options": "Threads=1 Hash=128",
-            "both_time_control": "60.0+0.6",
+            "both_time_control": "40.0+0.4",
             "workload_size": 8
-        },
-        "LTC Fixed": {
-            "both_options": "Threads=1 Hash=64",
-            "both_time_control": "60.0+0.6",
-            "workload_size": 8,
-            "test_max_games": 20000
-        },
-        "SMP STC": {
-            "both_options": "Threads=8 Hash=64",
-            "both_time_control": "5.0+0.05",
-            "workload_size": 64
-        },
-        "SMP LTC": {
-            "both_options": "Threads=8 Hash=256",
-            "both_time_control": "30.0+0.30",
-            "workload_size": 16
         }
     },
     "tune_presets": {
