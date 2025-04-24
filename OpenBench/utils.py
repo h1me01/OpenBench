@@ -44,7 +44,6 @@ from OpenBench.stats import TrinomialSPRT, PentanomialSPRT
 
 
 import OpenBench.views
-import OpenBench.model_utils
 
 
 class TimeControl(object):
@@ -341,12 +340,21 @@ def network_default(request, engine, network):
 
 def network_delete(request, engine, network):
 
-    message, success = OpenBench.model_utils.network_delete(network)
+    # Don't allow deletion of important networks
+    if network.default or network.was_default:
+        error = 'You may not delete Default, or previous Default networks.'
+        return OpenBench.views.redirect(request, '/networks/%s/' % (engine), error=error)
 
-    if success:
-        return OpenBench.views.redirect(request, '/networks/%s/' % (engine), status=message)
-    else:
-        return OpenBench.views.redirect(request, '/networks/%s/' % (engine), error=message)
+    # Save information before deleting the Network Model
+    status = 'Deleted %s for %s' % (network.name, network.engine)
+    sha256 = network.sha256; network.delete()
+
+    # Only delete the actual file if no other engines use it
+    if not Network.objects.filter(sha256=sha256):
+        FileSystemStorage().delete(sha256)
+
+    # Report this, and refer to the Engine specific view
+    return OpenBench.views.redirect(request, '/networks/%s/' % (engine), status=status)
 
 def network_download(request, engine, network):
 

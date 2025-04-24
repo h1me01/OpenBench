@@ -18,14 +18,14 @@
 #                                                                           #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# The main purpose of this module is to invoke create_genfens_opening_book().
-# Refer to Client/worker.py, or Scripts/genfens_engine.py for the arguments.
+# The sole purpose of this module is to invoke create_genfens_opening_book().
 #
-# We will execute engines with commands like the following:
+# This will execute engines with commands like the following:
 #   ./engine "genfens N seed S book <None|Books/book.epd> <?extra>" "quit"
 #
 # This work is split over many engines. If a workload requires 1024 openings,
-# and there are 16 threads, then each thread will generate 64 openings.
+# and there are 16 threads, then each thread will generate 64 openings. The
+# openings are saved to Books/openbench.genfens.epd
 #
 # create_genfens_opening_book() may raise utils.OpenBenchFailedGenfensException.
 # This occurs when longer than 15 seconds has elapsed since getting an opening.
@@ -51,22 +51,38 @@ def genfens_required_openings_each(config):
 
     return math.ceil(total_games / config.threads)
 
+def genfens_command_args(config, binary_name, network):
+
+    binary      = os.path.join('Engines', binary_name)
+    private     = config.workload['test']['dev']['private']
+    N           = genfens_required_openings_each(config)
+    book        = genfens_book_input_name(config)
+    extra_args  = config.workload['test']['genfens_args']
+
+    return (binary, network, private, N, book, extra_args)
+
 def genfens_book_input_name(config):
 
-    book_name = config.workload['test']['book']['name']
-    book_none = book_name.upper() == 'NONE'
+    book_name   = config.workload['test']['book']['name']
+    book_none   = book_name.upper() == 'NONE'
 
     return 'None' if book_none else os.path.join('Books', book_name)
 
-def genfens_command_builder(args, index):
+def genfens_seed(config, N_per_thread, thread_index):
 
-    command = ['./%s' % (args['engine'])]
+    x = config.workload['test']['book_seed']
+    y = config.workload['test']['book_index']
 
-    if args['network'] and args['private']:
-        command += ['setoption name EvalFile value %s' % (args['network'])]
+    return (x << 32) + (y + N_per_thread * thread_index)
 
-    fstr = 'genfens %d seed %d book %s %s'
-    command += [fstr % (args['N'], args['seeds'][index], args['book'], args['extra']), 'quit']
+def genfens_command_builder(binary, network, private, N, book, extra_args, seed):
+
+    command = ['./%s' % (binary)]
+
+    if network and private:
+        command += ['setoption name EvalFile value %s' % (network)]
+
+    command += ['genfens %d seed %d book %s %s' % (N, seed, book, extra_args), 'quit']
 
     return command
 
@@ -93,48 +109,44 @@ def genfens_progress_bar(curr, total):
         bar_text = '=' * curr_progress + ' ' * (50 - curr_progress)
         print ('\r[%s] %d/%d' % (bar_text, curr, total), end='', flush=True)
 
-def convert_fen_to_epd(fen):
+def create_genfens_opening_book(config, binary_name, network):
 
-    # Input  : rnbqkbnr/pppp2pp/4pp2/8/2P2P2/P7/1P1PP1PP/RNBQKBNR b KQkq - 0 3
-    # Output : rnbqkbnr/pppp2pp/4pp2/8/2P2P2/P7/1P1PP1PP/RNBQKBNR b KQkq - hmvc 0; fmvn 3;
+    # Format: ./engine "genfens N seed S book <None|book.epd>" "quit"
+    N     = genfens_required_openings_each(config)
+    seeds = config.workload['test']['genfens_seeds']
+    args  = genfens_command_args(config, binary_name, network)
 
-    halfmove, fullmove = fen.split()[4:]
-
-    return ' '.join(fen.split()[:4]) + ' hmvc %d; fmvn %d;' % (int(halfmove), int(fullmove))
-
-def create_genfens_opening_book(args):
-
-    N          = args['N']
-    threads    = args['threads']
     start_time = time.time()
     output     = multiprocessing.Queue()
+    print ('\nGenerating %d Openings using %d Threads...' % (N * config.threads, config.threads))
 
-    print ('\nGenerating %d Openings using %d Threads...' % (N * threads, threads))
 
     # Split the work over many threads. Ensure the seed varies by the thread,
     # number in accordance with how many openings each thread will generate
-
     processes = [
         multiprocessing.Process(
             target=genfens_single_threaded,
-            args=(genfens_command_builder(args, index), output))
-        for index in range(threads)
+            args=(genfens_command_builder(*args, seeds[ii]), output))
+        for ii in range(config.threads)
     ]
 
     for process in processes:
         process.start()
 
-    try: # Each process will deposit exactly N results into the Queue
-        for iteration in range(N * threads):
-            args['output'].write(convert_fen_to_epd(output.get(timeout=15)) + '\n')
-            genfens_progress_bar(iteration+1, N * threads)
+    # Parse the Queue and save the content into Books/openbench.genfens.epd
+    with open(os.path.join('Books', 'openbench.genfens.epd'), 'w') as fout:
 
-    except queue.Empty: # Force kill the engine, thus causing the processes to finish
-        utils.kill_process_by_name(binary_name)
-        raise utils.OpenBenchFailedGenfensException('[%s] Stalled during genfens' % (binary_name))
+        try: # Each process will deposit exactly N results into the Queue
+            for iteration in range(N * config.threads):
+                fout.write(output.get(timeout=15) + '\n')
+                genfens_progress_bar(iteration+1, N * config.threads)
 
-    finally: # Join everything to avoid zombie processes
-        for process in processes:
-            process.join()
+        except queue.Empty: # Force kill the engine, thus causing the processes to finish
+            utils.kill_process_by_name(binary_name)
+            raise utils.OpenBenchFailedGenfensException('[%s] Stalled during genfens' % (binary_name))
+
+        finally: # Join everything to avoid zombie processes
+            for process in processes:
+                process.join()
 
     print('\nFinished Building Opening Book in %.3f seconds' % (time.time() - start_time))

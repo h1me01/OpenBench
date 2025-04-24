@@ -57,7 +57,7 @@ from client import try_forever
 
 ## Basic configuration of the Client. These timeouts can be changed at will
 
-CLIENT_VERSION   = 37 # Client version to send to the Server
+CLIENT_VERSION   = 36 # Client version to send to the Server
 TIMEOUT_HTTP     = 30 # Timeout in seconds for HTTP requests
 TIMEOUT_ERROR    = 10 # Timeout in seconds when any errors are thrown
 TIMEOUT_WORKLOAD = 30 # Timeout in seconds between workload requests
@@ -1110,25 +1110,11 @@ def safe_download_engine(config, branch, net_path):
 
 def safe_create_genfens_opening_book(config, dev_name, dev_network):
 
-    with open(os.path.join('Books', 'openbench.genfens.epd'), 'w') as fout:
+    try: genfens.create_genfens_opening_book(config, dev_name, dev_network)
 
-        args = {
-            'N'       : genfens.genfens_required_openings_each(config),
-            'book'    : genfens.genfens_book_input_name(config),
-            'seeds'   : config.workload['test']['genfens_seeds'],
-            'extra'   : config.workload['test']['genfens_args'],
-            'private' : config.workload['test']['dev']['private'],
-            'engine'  : os.path.join('Engines', dev_name),
-            'network' : dev_network,
-            'threads' : config.threads,
-            'output'  : fout,
-        }
-
-        try: genfens.create_genfens_opening_book(args)
-
-        except utils.OpenBenchFailedGenfensException as error:
-            ServerReporter.report_engine_error(config, error.message)
-            raise
+    except utils.OpenBenchFailedGenfensException as error:
+        ServerReporter.report_engine_error(config, error.message)
+        raise
 
 def safe_run_benchmarks(config, branch, engine, network):
 
