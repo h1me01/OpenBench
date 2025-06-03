@@ -20,6 +20,7 @@
     ],
 
     "engines" : [
-        "Astra"
+        "Astra",
+        "Clover"
     ]
 }
