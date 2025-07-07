@@ -30,7 +30,7 @@
         },
         "LTC": {
             "both_options": "Threads=1 Hash=128",
-            "both_time_control": "40.0+0.4",
+            "both_time_control": "60.0+0.6",
             "workload_size": 8
         }
     },
