@@ -3,3 +3,4 @@ django-htmlmin==0.11.0
 requests
 scipy
 py-cpuinfo
+psutil
